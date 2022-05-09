@@ -12,80 +12,98 @@ import java.util.Stack;
 
 public class main {
 
+    /**
+     * @param args the command line arguments
+     * @throws java.io.FileNotFoundException
+     */
     public static void main(String[] args) throws FileNotFoundException, IOException {
 
-        Stack<TagClass> pilha = new Stack<>();
         Scanner scanner = new Scanner(new File("FileXML.txt"));
-        String textToFile = "";
-        ArrayList<TagClass> tagObjects = new ArrayList<>();
-
+        String allString = "";
+        
+        boolean valid = true;
+        
         while (scanner.hasNextLine()) {
+            allString += scanner.nextLine();
+        }
+        
+        allString = RegexTools.RemoveXmlCommentsAndVersion(allString);
+        
+        Stack<TagClass> pilha = new Stack<>();
+        TagItem tagItem;
+        String jsonString = "";
 
-            String line = scanner.nextLine();
-            ArrayList<TagItem> matches = new ArrayList<>();
+        do {
+            tagItem = RegexTools.GetXmlMatch(allString);
 
-            do {
-                TagItem tagItem = RegexTools.GetXmlMatch(line);
+            if (tagItem == null) {
+                break;
+            }
 
-                if (tagItem != null) {
-                    if (null == tagItem.getType()) {
-                        line = line.replace(tagItem.getName(), "");
-                    } else {
-                        switch (tagItem.getType()) {
-                            case "opening":
-                                line = line.replace("<" + tagItem.getName() + ">", "");
-                                matches.add(tagItem);
-                                
-                                if("".equals(line)){
-                                    pilha.lastElement().getTagClass().add(new TagClass(tagItem.getName()));
-                                }
-                                break;
-                            case "closing":
-                                line = line.replace("</" + tagItem.getName() + ">", "");
-                                matches.add(tagItem);
-                                break;
-                            default:
-                                line = line.replace(tagItem.getName(), "");
-                                break;
+            if (pilha.isEmpty()) {
+                if ("opening".equals(tagItem.getType())) {
+                    pilha.add(new TagClass(tagItem.getName()));
+                    allString = allString.replaceFirst("<" + tagItem.getName() + ">", "");
+                } else {
+                    valid = false;
+                }
+            } else if ("opening".equals(tagItem.getType())) {
+                TagClass newTag = new TagClass(tagItem.getName());
+
+                pilha.lastElement().getTagClass().add(newTag);
+                pilha.add(newTag);
+
+                allString = allString.replaceFirst("<" + tagItem.getName() + ">", "");
+            } else if ("content".equals(tagItem.getType())) {
+                pilha.lastElement().setTagStringContent(tagItem.getName());
+                allString = allString.replaceFirst(tagItem.getName(), "");
+            } else if ("closing".equals(tagItem.getType())) {
+                if (pilha.lastElement().getTagName().equals(tagItem.getName())) {
+                    if (pilha.size() == 1) {
+                        allString = allString.replaceFirst("</" + tagItem.getName() + ">", "");
+                        if ("".equals(allString)) {
+                            break;
+                        } else {
+                            valid = false;
                         }
+                        //break;
                     }
-                } else if (!"".equals(line)) {
-
-                    ArrayList<TagItem> lastTagPair = new ArrayList<>(matches.subList(matches.size() - 2, matches.size()));
-
-                    if (lastTagPair.get(0).getName().equals(lastTagPair.get(1).getName())
-                            && "opening".equals(lastTagPair.get(0).getType())
-                            && "closing".equals(lastTagPair.get(1).getType())) {
-                        //tagObjects.get(tagObjects.size() - 1).getTagClass().add(new TagClass(lastTagPair.get(0).getName(), line));
-                        pilha.lastElement().getTagClass().add(new TagClass(lastTagPair.get(0).getName(), line));
-                        break;
-                    }
-                } else if (tagObjects.isEmpty()) {
-                    tagObjects.add(new TagClass(matches.get(0).getName()));
-                    pilha.add(tagObjects.get(0));
-                    break;
-                } else if ("opening".equals(matches.get(matches.size() - 1).getType())) {
-                    //tagObjects.get(tagObjects.size() - 1).getTagClass().add(new TagClass(matches.get(0).getName()));
-                    pilha.lastElement().getTagClass().add(new TagClass(matches.get(matches.size() - 1).getName(), line));
-                    break;
-                } else if ("closing".equals(matches.get(matches.size() - 1).getType())) {
-                    //tagObjects.get(tagObjects.size() - 1).getTagClass().add(new TagClass(matches.get(0).getName()));
                     pilha.pop();
-                    break;
+                    allString = allString.replaceFirst("</" + tagItem.getName() + ">", "");
+                } else {
+                    valid = false;
+                }
+            }
+
+        } while (valid);
+
+        TagClass objectResult = pilha.pop();
+
+        jsonString += "{\"" + objectResult.getTagName() + "\":{";
+
+        if (!objectResult.getTagClass().isEmpty()) {
+            ArrayList<TagClass> list = objectResult.getTagClass();
+            jsonString += "\"" + list.get(0).getTagName() + "\":[";
+
+            for (TagClass listItem : list) {
+                jsonString += "{";
+
+                ArrayList<TagClass> properties = listItem.getTagClass();
+
+                for (TagClass property : properties) {
+                    jsonString += "\"" + property.getTagName() + "\":\"" + property.getTagStringContent() + "\",";
                 }
 
-            } while (true);                
+                jsonString = jsonString.substring(0, jsonString.length() - 1);
+                jsonString += "},";
+            }
+            jsonString = jsonString.substring(0, jsonString.length() - 1);
+            jsonString += "]}}";
+
+            FileWriter fw = new FileWriter("FileJson.txt");
+            fw.write(jsonString);
+            fw.close();
         }
-
-        FileWriter fw = new FileWriter("prog-check.txt");
-
-        fw.write(textToFile);
-
-        fw.close();
     }
-}
 
-//else if ("closing".equals(matches.get(matches.size() - 1).getType())
-//                       && tagObjects.get(tagObjects.size() - 1).getTagName().equals(matches.get(matches.size() - 1).getName())) {
-//                    
-//                }
+}
