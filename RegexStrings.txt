@@ -1,0 +1,22 @@
+Regexes to XML to JSON parser
+
+* XML Version Regex Ex: Match/Reads -> <?xml version = "1.0"?>
+
+<\?.*\?>
+
+* XML Sigle Line Comment Regex Ex: Match/Reads -> <!--Students grades are uploaded by months-->
+
+<!--.*-->                                 
+
+* Opening Tag Regex Ex: Match -> <CATALOG> || -> Reads "CATALOG"
+
+(?<=<)[A-Z]{1,}(?=>)
+
+* Closing Tag Regex Ex: Match -> </CATALOG> || -> Reads "CATALOG"
+
+(?<=<\/)[A-Z]{1,}(?=>)
+
+
+Not finished:
+
+<!--(.|\n)+--> (multilineComment)
